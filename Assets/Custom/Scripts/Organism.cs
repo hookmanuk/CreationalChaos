@@ -5,6 +5,8 @@ using UnityEngine;
 
 public class Organism : MonoBehaviour
 {
+    const float SLOWSPEED = 0.5f;
+    const float FASTSPEED = 1.5f;
     public OrganismType Type { get; set; }
     public OrganismType TargetType { get; set; }
     public OrganismType ChasedByType { get; set; }
@@ -17,15 +19,16 @@ public class Organism : MonoBehaviour
     public Organism LastMated { get; set; }
     public DateTime LastMatedTime { get; set; } = DateTime.MinValue;
     private float _secsSinceLastCalc = 99;
+    public Material Material { get; set; }
 
     // Start is called before the first frame update
     void Start()
     {
-        Material material = GetComponent<MeshRenderer>().material;
+        Material = GetComponent<MeshRenderer>().material;
 
-        material.SetFloat("_RandomRotation1", UnityEngine.Random.Range(-1f, 1f) * (IsMenuItem ? 1f : 3f));
-        material.SetFloat("_RandomRotation2", UnityEngine.Random.Range(-1f, 1f) * (IsMenuItem ? 1f : 3f));
-        material.SetFloat("_TimeOffset", UnityEngine.Random.Range(-1f, 1f));
+        Material.SetFloat("_RandomRotation1", UnityEngine.Random.Range(-1f, 1f) * (IsMenuItem ? 1f : 3f));
+        Material.SetFloat("_RandomRotation2", UnityEngine.Random.Range(-1f, 1f) * (IsMenuItem ? 1f : 3f));
+        Material.SetFloat("_TimeOffset", UnityEngine.Random.Range(-1f, 1f));
 
         if (IsMenuItem)
         {
@@ -92,7 +95,7 @@ public class Organism : MonoBehaviour
 
                 if (!IsMenuItem)
                 {
-                    Speed = 0.01f;                    
+                    Speed = SLOWSPEED;                    
 
                     for (int i = 0; i < CreationManager.Instance.Organisms.Count; i++)
                     {
@@ -102,7 +105,7 @@ public class Organism : MonoBehaviour
                         if (org != this && (org.Type == TargetType)
                                         // && this.LastMated != org
                                         //&& org.LastMated != this
-                                        && (DateTime.Now - this.LastMatedTime).TotalSeconds > 2
+                                        && (DateTime.Now - this.LastMatedTime).TotalSeconds > 1
                                         //&& (DateTime.Now - org.LastMatedTime).TotalSeconds > 1
                                         )
                         {
@@ -141,7 +144,7 @@ public class Organism : MonoBehaviour
 
                     if (closeOrganisms.Count > 0)
                     {
-                        Speed = 0.015f;
+                        Speed = FASTSPEED;
 
                         if (closeOrg == null)
                         {
@@ -215,7 +218,7 @@ public class Organism : MonoBehaviour
                         //}
                         //else
                         //{
-                        Speed = 0.005f;
+                        Speed = SLOWSPEED;
                         //}
                         //}
                     }
@@ -230,15 +233,35 @@ public class Organism : MonoBehaviour
     {
         if (!IsMenuItem && !CreationManager.Instance.IsSetup && CreationManager.Instance.IsPlaying)
         {
-            transform.position = transform.position + direction.normalized * Speed;
+            transform.position = transform.position + direction.normalized * Speed * Time.deltaTime;
         }
     }
+
+    public void PulseDestroy()
+    {        
+        StartCoroutine(WaitThenDestroy());
+    }
+
+    IEnumerator WaitThenDestroy()
+    {        
+        float t = 0f;
+        while (t < 1f)
+        {
+            yield return new WaitForSeconds(0.1f);
+            Material.SetFloat("_Dim", 1f + (-4 * t));
+
+            t += 0.2f;
+        }        
+        
+        GameObject.Destroy(this.gameObject);
+    }    
 
     public void DestroyMe()
     {
         CreationManager.Instance.Organisms.Remove(this);
-        GameObject.Destroy(this.gameObject);        
-    }
+
+        GameObject.Destroy(this.gameObject);
+    }    
 
     public virtual void Started()
     {        
