@@ -13,9 +13,14 @@ public class CreationManager : MonoBehaviour
     public TextMesh SimulationTip;
     public TextMesh PlayTip;
     public TextMesh PreGameTip;
+    public TextMesh HighScores;
+    public GameObject Title;
+    public TMPro.TMP_InputField InputField;    
+    public GameObject Keyboard;
 
     private static CreationManager _creationManager;
     public static CreationManager Instance { get { return _creationManager; } }
+    public PlayFabManager PlayFabManager { get; set; } = new PlayFabManager();
 
     const float ORGANISMSIZE = 20f;
     const float SPAWNWAITTIME = 0.1f;
@@ -44,11 +49,15 @@ public class CreationManager : MonoBehaviour
     private float _timeLeft = 30;
     private float _timeSinceLastScore = 0;
     private int _lastOrganismScored = 0;
+    private string playerName = "";
     public bool IsPlaying { get; set; } = false;
     public bool IsSetup { get; set; } = false;
     public bool IsScoring { get; set; } = false;
 
+    public bool IsEnteringName { get; set; } = false;
     public bool IsReportingScore { get; set; } = false;
+
+    public bool IsRenderingScores { get; set; } = false;
 
     public List<Organism> MenuItemOrganisms { get; set; } = new List<Organism>();
     public List<Organism> Organisms { get; set; } = new List<Organism>();
@@ -68,6 +77,7 @@ public class CreationManager : MonoBehaviour
         ScoreValue.gameObject.SetActive(false);
         PreGameTip.gameObject.SetActive(true);
         SimulationTip.gameObject.SetActive(false);
+        HighScores.gameObject.SetActive(false);        
     }
 
     // Update is called once per frame
@@ -170,9 +180,11 @@ public class CreationManager : MonoBehaviour
                     }
                     else
                     {
+                        _lastOrganismScored = 0;
                         IsSetup = false;
                         IsScoring = false;
-                        IsReportingScore = true;
+                        IsEnteringName = true;
+                        IsReportingScore = false;
 
                         Time.timeScale = 1;
 
@@ -184,20 +196,76 @@ public class CreationManager : MonoBehaviour
             }
             else
             {
-                //add IsReportingScore section for high scores here                
-
-                foreach (var touch in Input.touches)
+                if (IsEnteringName)
                 {
-                    StartGame();
-                    break;
+                    //show keyboard
+                    if (!Keyboard.activeSelf)
+                    {
+                        Keyboard.SetActive(true);
+                        InputField.text = PlayFabManager.GetName();
+                    }
                 }
-
-                if (Input.GetMouseButtonDown(0))
+                else
                 {
-                    StartGame();
+                    if (IsReportingScore)
+                    {
+                        //add IsReportingScore section for high scores here                                        
+                        PlayFabManager.RecordScore(playerName, _score, (result) =>
+                        {
+                            StartCoroutine(ShowHighScores());
+                        });
+
+                        IsReportingScore = false;
+                        IsRenderingScores = true;
+                    }
+                    else
+                    {
+                        if (IsRenderingScores)
+                        {
+                            //wait for rendering to finsh on another thread
+                        }
+                        else
+                        {                            
+                            foreach (var touch in Input.touches)
+                            {
+                                StartGame();
+                                break;
+                            }
+
+                            if (Input.GetMouseButtonDown(0))
+                            {
+                                StartGame();
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    IEnumerator ShowHighScores()
+    {
+        //wait for the scores to update on the server with the new score added
+        ScoreValue.gameObject.SetActive(false);
+        HighScores.gameObject.SetActive(true);
+        TitleScreen.SetActive(true);
+        HighScores.text = "High Scores:" + Environment.NewLine + Environment.NewLine + "Updating...";
+
+        yield return new WaitForSeconds(1);
+
+        //show high scores
+        PlayFabManager.GetHighScores((result) =>
+        {
+            string strScores = "High Scores:" + Environment.NewLine + Environment.NewLine;
+            foreach (var item in result.Leaderboard)
+            {
+                strScores += item.Position + 1 + ". " + item.DisplayName + " - " + item.StatValue + Environment.NewLine;
+            }
+        
+            HighScores.text = strScores;
+        });
+
+        IsRenderingScores = false;
     }
 
     private void CheckDoubleTime()
@@ -213,7 +281,7 @@ public class CreationManager : MonoBehaviour
     }
 
     private void StartGame()
-    {
+    {       
         IsPlaying = true;
         IsSetup = true;
 
@@ -237,6 +305,7 @@ public class CreationManager : MonoBehaviour
         Phase2Text.gameObject.SetActive(false);
         Phase3Text.gameObject.SetActive(false);
         TitleScreen.SetActive(false);
+        Title.SetActive(false);
 
         TimeLabel.gameObject.SetActive(false);
         TimeValue.gameObject.SetActive(false);
@@ -248,6 +317,7 @@ public class CreationManager : MonoBehaviour
         SimulationTip.gameObject.SetActive(true);
         PlayTip.gameObject.SetActive(false);
         PreGameTip.gameObject.SetActive(false);
+        HighScores.gameObject.SetActive(false);        
 
         WaitTime = 0.5f;
     }
@@ -422,4 +492,13 @@ public class CreationManager : MonoBehaviour
 
 
     //}
+
+    public void TextEntryDone()
+    {
+        playerName = InputField.text;        
+        Keyboard.SetActive(false);
+        
+        IsEnteringName = false;
+        IsReportingScore = true;
+    }
 }
