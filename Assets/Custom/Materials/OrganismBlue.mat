@@ -23,8 +23,8 @@ Material:
   m_Name: OrganismBlue
   m_Shader: {fileID: -6465566751694194690, guid: 577965b5fec94ce46b495286dc5e8667, type: 3}
   m_ShaderKeywords: 
-  m_LightmapFlags: 2
-  m_EnableInstancingVariants: 0
+  m_LightmapFlags: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -103,6 +103,7 @@ Material:
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
+    - _Dim: 0
     - _DstBlend: 0
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
@@ -129,4 +130,5 @@ Material:
     - _Color: {r: 0, g: 60.235294, b: 766.9961, a: 1}
     - _EmissionColor: {r: 0, g: 55.63665, b: 506.0286, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    - _Vector4: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

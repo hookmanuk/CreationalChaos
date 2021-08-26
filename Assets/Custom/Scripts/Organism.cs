@@ -5,8 +5,8 @@ using UnityEngine;
 
 public class Organism : MonoBehaviour
 {
-    const float SLOWSPEED = 0.5f;
-    const float FASTSPEED = 1.5f;
+    const float SLOWSPEED = 0.3f;
+    const float FASTSPEED = 0.9f;
     public OrganismType Type { get; set; }
     public OrganismType TargetType { get; set; }
     public OrganismType ChasedByType { get; set; }
@@ -16,6 +16,7 @@ public class Organism : MonoBehaviour
     private Vector3 _screenpoint = Vector3.zero;
     protected Vector3 _direction;
     protected Vector3 _rotation;
+    private bool _isGlowing = false;
     public Organism LastMated { get; set; }
     public DateTime LastMatedTime { get; set; } = DateTime.MinValue;
     private float _secsSinceLastCalc = 99;
@@ -85,7 +86,7 @@ public class Organism : MonoBehaviour
         Organism closeOrg = null;
         _secsSinceLastCalc += Time.deltaTime;
         
-        if (_secsSinceLastCalc > 0.1f)
+        if (_secsSinceLastCalc > 0.15f)
         {
             _secsSinceLastCalc = 0;
             if (CreationManager.Instance.IsPlaying)
@@ -118,6 +119,8 @@ public class Organism : MonoBehaviour
                                     LastMatedTime = DateTime.Now;
                                     //org.LastMated = this;
                                     //org.LastMatedTime = DateTime.Now;
+
+                                    StartCoroutine(Mated());
 
                                     //spawn 2 children
                                     for (int j = 0; j < CreationManager.CLONECOUNT; j++)
@@ -224,6 +227,16 @@ public class Organism : MonoBehaviour
                     }
                 }
             }
+
+            //hack to reset glow
+            if (!_isGlowing)
+            {
+                Vector4 vector = new Vector4(1f, 1f, 1f, 1f);
+                if (Material.GetVector("_Glow") != vector)
+                {
+                    Material.SetVector("_Glow", vector);
+                }                
+            }
         }
 
         return _direction;
@@ -260,8 +273,37 @@ public class Organism : MonoBehaviour
     {
         CreationManager.Instance.Organisms.Remove(this);
 
-        GameObject.Destroy(this.gameObject);
-    }    
+        GameObject.Destroy(this.gameObject);        
+    }
+
+    public IEnumerator Mated()
+    {
+        float t = 0f;
+        float increment = 20f;
+        float glow = 0f;
+        _isGlowing = true;
+        while (t < 1f)
+        {            
+            if (glow >= 60)
+            {
+                increment = -10f;
+            }
+            glow += increment;
+
+            if (glow <= 0)
+            {
+                break;
+            }
+
+            Material.SetVector("_Glow", new Vector4(glow,glow,glow,glow));
+
+            yield return new WaitForSeconds(0.1f);
+            t += 0.1f;
+        }
+        _isGlowing = false;
+
+        Material.SetVector("_Glow", new Vector4(1f, 1f, 1f, 1f));
+    }
 
     public virtual void Started()
     {        

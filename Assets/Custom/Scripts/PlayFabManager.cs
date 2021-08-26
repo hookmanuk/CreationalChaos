@@ -52,7 +52,7 @@ public class PlayFabManager
                 {
                     var updateRequest = new UpdateUserTitleDisplayNameRequest
                     {
-                        DisplayName = playerName
+                        DisplayName = playerName.PadRight(4,Convert.ToChar("_"))
                     };
                     PlayFabClientAPI.UpdateUserTitleDisplayName(updateRequest, (result) =>
                     {

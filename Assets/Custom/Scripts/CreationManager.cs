@@ -17,6 +17,10 @@ public class CreationManager : MonoBehaviour
     public GameObject Title;
     public TMPro.TMP_InputField InputField;    
     public GameObject Keyboard;
+    public Texture2D[] LogoTextures;
+    public Material LogoMaterial;
+    public GameObject TitleLogo;
+    public AudioSource Music;
 
     private static CreationManager _creationManager;
     public static CreationManager Instance { get { return _creationManager; } }
@@ -26,9 +30,9 @@ public class CreationManager : MonoBehaviour
     const float SPAWNWAITTIME = 0.1f;
     const float SCOREINTERVAL = 0.05f;
     public const int CLONECOUNT = 2;
-    const int TOTALTOPLACE = 50;
-    const int PHASE2LENGTH = 30;
-    const float SPEEDUPTIME = 3f;
+    const int TOTALTOPLACE = 60;
+    const int PHASE2LENGTH = 40;
+    const float SPEEDUPTIME = 4f;
     public const float SCREENXMAX = 7f;
     public const float SCREENXMIN = -7f;
     public const float SCREENYMIN = -2f;
@@ -49,6 +53,8 @@ public class CreationManager : MonoBehaviour
     private float _timeLeft = 30;
     private float _timeSinceLastScore = 0;
     private int _lastOrganismScored = 0;
+    private int _lastLogoTextureShownIndex = 0;
+    private float _lastLogoTextureShownSecs = 0;
     private string playerName = "";
     public bool IsPlaying { get; set; } = false;
     public bool IsSetup { get; set; } = false;
@@ -59,8 +65,20 @@ public class CreationManager : MonoBehaviour
 
     public bool IsRenderingScores { get; set; } = false;
 
+    public bool IsEndScreen { get; set; } = false;
+
     public List<Organism> MenuItemOrganisms { get; set; } = new List<Organism>();
     public List<Organism> Organisms { get; set; } = new List<Organism>();
+
+    public float MusicIntro1  = 12.85f;
+
+    public float MusicIntro2  = 17.03f;
+
+    public float MusicIntro3 = 21.21f;
+    public float MusicIntro4  = 25.39f;
+    public float MusicIntro5  = 29.56f;
+
+    public float MusicMainStart  = 29.56f;
 
     private void Awake()
     {
@@ -77,20 +95,41 @@ public class CreationManager : MonoBehaviour
         ScoreValue.gameObject.SetActive(false);
         PreGameTip.gameObject.SetActive(true);
         SimulationTip.gameObject.SetActive(false);
-        HighScores.gameObject.SetActive(false);        
+        HighScores.gameObject.SetActive(false);
+        
+        Music.Play();        
+    }
+
+    private void LoopIntroMusic()
+    {
+        if (!IsEndScreen)
+        {
+            if (Music.time > MusicIntro5)
+            {
+                Music.time = MusicIntro1;
+            }
+        }
     }
 
     // Update is called once per frame
     void Update()
-    {
+    {                
         if (IsPlaying)
         {
             if (IsSetup)
             {
+                LoopIntroMusic();
+
                 if (ActiveOrganism == null && MenuItemOrganisms.Count > 0)
                 {
-                    ActiveOrganism = MenuItemOrganisms[0];
-                    ActiveOrganism.Select();
+                    foreach (var item in MenuItemOrganisms)
+                    {
+                        if (item.name == "OrganismRedMenu")
+                        {
+                            ActiveOrganism = item;
+                            ActiveOrganism.Select();
+                        }
+                    }                    
                 }
 
                 if (WaitTime > 0)
@@ -130,6 +169,16 @@ public class CreationManager : MonoBehaviour
                 }
                 else
                 {
+                    if (Music.time < MusicMainStart && 
+                        ((Music.time >= MusicIntro1 && Music.time < MusicIntro1 + 0.1f)
+                        || (Music.time >= MusicIntro2 && Music.time < MusicIntro2 + 0.1f)
+                        || (Music.time >= MusicIntro3 && Music.time < MusicIntro3 + 0.1f)
+                        || (Music.time >= MusicIntro4 && Music.time < MusicIntro4 + 0.1f)
+                        || (Music.time >= MusicIntro5 && Music.time < MusicIntro5 + 0.1f)
+                        ))
+                    {
+                        Music.time = MusicMainStart;
+                    }
                     CheckDoubleTime();
                 }
 
@@ -226,6 +275,26 @@ public class CreationManager : MonoBehaviour
                         }
                         else
                         {                            
+                            LoopIntroMusic();                                                        
+
+                            if (TitleLogo.activeSelf)
+                            {
+                                _lastLogoTextureShownSecs += Time.deltaTime;
+
+                                if (_lastLogoTextureShownSecs >= 0.066)
+                                {
+                                    _lastLogoTextureShownSecs = 0;
+                                    _lastLogoTextureShownIndex++;
+
+                                    if (_lastLogoTextureShownIndex >= 46)
+                                    {
+                                        _lastLogoTextureShownIndex = 0;
+                                    }
+
+                                    LogoMaterial.SetTexture("_EmissionMap", LogoTextures[_lastLogoTextureShownIndex]);
+                                }
+                            }
+
                             foreach (var touch in Input.touches)
                             {
                                 StartGame();
@@ -266,6 +335,8 @@ public class CreationManager : MonoBehaviour
         });
 
         IsRenderingScores = false;
+
+        IsEndScreen = true;
     }
 
     private void CheckDoubleTime()
@@ -280,10 +351,30 @@ public class CreationManager : MonoBehaviour
         }
     }
 
+    IEnumerator RestartMusic()
+    {
+        float t = 0;
+        while (t <= 2f)
+        {
+            t += 0.1f;
+            Music.volume = 1 - (1 * t/2);
+
+            yield return new WaitForSeconds(0.1f);            
+        }
+
+        Music.time = 0;
+        Music.volume = 1;
+        IsEndScreen = false;
+    }
+
     private void StartGame()
     {       
         IsPlaying = true;
         IsSetup = true;
+        if (IsEndScreen)
+        {
+            StartCoroutine(RestartMusic());
+        }
 
         for (int i = 0; i < Organisms.Count; i++)
         {
@@ -317,7 +408,8 @@ public class CreationManager : MonoBehaviour
         SimulationTip.gameObject.SetActive(true);
         PlayTip.gameObject.SetActive(false);
         PreGameTip.gameObject.SetActive(false);
-        HighScores.gameObject.SetActive(false);        
+        HighScores.gameObject.SetActive(false);
+        TitleLogo.gameObject.SetActive(false);
 
         WaitTime = 0.5f;
     }
@@ -450,7 +542,7 @@ public class CreationManager : MonoBehaviour
 
         newOrganism.LastMatedTime = DateTime.Now;
         newOrganism.transform.position = clickedPoint;
-        newOrganism.transform.position = new Vector3(newOrganism.transform.position.x, newOrganism.transform.position.y, ActiveOrganism.transform.position.z);
+        newOrganism.transform.position = new Vector3(newOrganism.transform.position.x, newOrganism.transform.position.y, ActiveOrganism.transform.position.z);        
     }
 
     public float GetScreenHeightRatio()
