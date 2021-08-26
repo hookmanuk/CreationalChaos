@@ -22,8 +22,18 @@ public class Organism : MonoBehaviour
     private float _secsSinceLastCalc = 99;
     public Material Material { get; set; }
 
+    private bool _initDone = false;
+
     // Start is called before the first frame update
     void Start()
+    {
+        if (!_initDone)
+        {
+            Init();
+        }        
+    }
+
+    public void Init()
     {
         Material = GetComponent<MeshRenderer>().material;
 
@@ -37,12 +47,14 @@ public class Organism : MonoBehaviour
         }
         else
         {
-            CreationManager.Instance.Organisms.Add(this);
+            //CreationManager.Instance.Organisms.Add(this);
         }
 
         _direction = new Vector3(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f), 0);
         _rotation = new Vector3(UnityEngine.Random.Range(-180f, 180f), UnityEngine.Random.Range(-180f, 180f), UnityEngine.Random.Range(-180f, 180f));
         Started();
+
+        _initDone = true;
     }
 
     // Update is called once per frame
@@ -89,7 +101,7 @@ public class Organism : MonoBehaviour
         if (_secsSinceLastCalc > 0.15f)
         {
             _secsSinceLastCalc = 0;
-            if (CreationManager.Instance.IsPlaying)
+            if (CreationManager.Instance.IsPlaying && !CreationManager.Instance.IsSetup)
             {
                 float distance = 0;
                 List<Tuple<Organism, float>> closeOrganisms = new List<Tuple<Organism, float>>();
