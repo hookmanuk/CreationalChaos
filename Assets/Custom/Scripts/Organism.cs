@@ -264,16 +264,18 @@ public class Organism : MonoBehaviour
             Material.SetFloat("_Dim", 1f + (-4 * t));
 
             t += 0.2f;
-        }        
-        
-        GameObject.Destroy(this.gameObject);
+        }
+
+        //GameObject.Destroy(this.gameObject);
+        this.gameObject.SetActive(false);
     }    
 
     public void DestroyMe()
     {
         CreationManager.Instance.Organisms.Remove(this);
 
-        GameObject.Destroy(this.gameObject);        
+        //GameObject.Destroy(this.gameObject);        
+        this.gameObject.SetActive(false);
     }
 
     public IEnumerator Mated()
