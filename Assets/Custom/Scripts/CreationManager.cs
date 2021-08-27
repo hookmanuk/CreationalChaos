@@ -5,14 +5,11 @@ using UnityEngine;
 
 public class CreationManager : MonoBehaviour
 {
-    public TextMesh CountValue;
-    public TextMesh CountLabel;
-    public TextMesh TimeValue;
-    public TextMesh TimeLabel;
+    public TextMesh CountValue;   
+    public TextMesh TimeValue;    
     public TextMesh ScoreValue;
     public TextMesh SimulationTip;
-    public TextMesh PlayTip;
-    public TextMesh PreGameTip;
+    public TextMesh PlayTip;    
     public TextMesh HighScores;
     public GameObject Title;
     public TMPro.TMP_InputField InputField;    
@@ -21,6 +18,9 @@ public class CreationManager : MonoBehaviour
     public Material LogoMaterial;
     public GameObject TitleLogo;
     public AudioSource Music;
+    public GameObject[] Phases;
+    public GameObject[] PhaseLabels;
+    public GameObject SimulationCycleOfLife;
 
     private static CreationManager _creationManager;
     public static CreationManager Instance { get { return _creationManager; } }
@@ -48,10 +48,7 @@ public class CreationManager : MonoBehaviour
     public int BlueOrganismIndex = 0;
 
     public TextMesh ClickToBegin;
-    public GameObject TitleScreen;
-    public TextMesh Phase1Text;
-    public TextMesh Phase2Text;
-    public TextMesh Phase3Text;
+    public GameObject TitleScreen;   
     public Organism RedOrganismSource;
     public Organism GreenOrganismSource;
     public Organism BlueOrganismSource;
@@ -68,6 +65,7 @@ public class CreationManager : MonoBehaviour
     private string playerName = "";
     private float _last1ColourCheckTime = 0;
     private bool _all1Type = false;
+    private int _currentPhase = 0;
     public bool IsPlaying { get; set; } = false;
     public bool IsSetup { get; set; } = false;
     public bool IsScoring { get; set; } = false;
@@ -99,17 +97,18 @@ public class CreationManager : MonoBehaviour
 
     // Start is called before the first frame update
     void Start()
-    {
-        TimeLabel.gameObject.SetActive(false);
-        TimeValue.gameObject.SetActive(false);
-        CountLabel.gameObject.SetActive(false);
+    {        
+        TimeValue.gameObject.SetActive(false);     
         CountValue.gameObject.SetActive(false);
-        ScoreValue.gameObject.SetActive(false);
-        PreGameTip.gameObject.SetActive(true);
+        ScoreValue.gameObject.SetActive(false);        
         SimulationTip.gameObject.SetActive(false);
         HighScores.gameObject.SetActive(false);
-        
-        Music.Play();        
+        SimulationCycleOfLife.SetActive(false);
+
+
+        Music.Play();
+
+        SetPhase(0);
     }
 
     private void CreateOrganismsStash()
@@ -157,7 +156,7 @@ public class CreationManager : MonoBehaviour
         if (IsPlaying)
         {
             if (IsSetup)
-            {
+            {                
                 LoopIntroMusic();
 
                 if (ActiveOrganism == null && MenuItemOrganisms.Count > 0)
@@ -358,6 +357,7 @@ public class CreationManager : MonoBehaviour
     {
         yield return new WaitForSeconds(1);
 
+        SetPhase(5);
         IsSetup = false;
         IsScoring = false;
         IsEnteringName = true;
@@ -366,8 +366,7 @@ public class CreationManager : MonoBehaviour
         Time.timeScale = 1;
 
         PlayTip.gameObject.SetActive(false);
-        SimulationTip.gameObject.SetActive(false);
-        PreGameTip.gameObject.SetActive(true);
+        SimulationTip.gameObject.SetActive(false);        
     }
 
     IEnumerator ShowHighScores()
@@ -444,7 +443,8 @@ public class CreationManager : MonoBehaviour
     }
 
     private void StartGame()
-    {        
+    {
+        SetPhase(1);
         IsPlaying = true;
         IsSetup = true;
         if (IsEndScreen)
@@ -469,25 +469,20 @@ public class CreationManager : MonoBehaviour
         CreateOrganismsStash();
 
         ResetCount();
-
-        Phase1Text.gameObject.SetActive(true);
-        Phase2Text.gameObject.SetActive(false);
-        Phase3Text.gameObject.SetActive(false);
+        
         TitleScreen.SetActive(false);
         Title.SetActive(false);
-
-        TimeLabel.gameObject.SetActive(false);
+        
         TimeValue.gameObject.SetActive(false);
-        CountLabel.gameObject.SetActive(true);
         CountValue.gameObject.SetActive(true);
 
         ScoreValue.gameObject.SetActive(false);
 
         SimulationTip.gameObject.SetActive(true);
-        PlayTip.gameObject.SetActive(false);
-        PreGameTip.gameObject.SetActive(false);
+        PlayTip.gameObject.SetActive(false);        
         HighScores.gameObject.SetActive(false);
         TitleLogo.gameObject.SetActive(false);
+        SimulationCycleOfLife.SetActive(true);
 
         WaitTime = 0.5f;
         _all1Type = false;
@@ -495,18 +490,16 @@ public class CreationManager : MonoBehaviour
 
     private void ScoringPhase()
     {
-        //game finished
-        Phase1Text.gameObject.SetActive(false);
-        Phase2Text.gameObject.SetActive(false);
-        Phase3Text.gameObject.SetActive(true);
-
-        TimeLabel.gameObject.SetActive(false);
+        //game finished        
+        
         TimeValue.gameObject.SetActive(false);
+        SimulationCycleOfLife.SetActive(false);
 
         ScoreValue.gameObject.SetActive(true);
 
         IsPlaying = false;
         IsScoring = true;
+        SetPhase(3);
 
         //dim all organisms
         for (int i = 0; i < Organisms.Count; i++)
@@ -523,14 +516,14 @@ public class CreationManager : MonoBehaviour
     {
         _score = 0;
         _count = TOTALTOPLACE;
-        CountValue.text = _count.ToString();
+        CountValue.text = "0 / " + _count.ToString();
         ScoreValue.text = _score.ToString();
     }
 
     private void DecreaseCount()
     {
         _count--;
-        CountValue.text = _count.ToString();
+        CountValue.text = (TOTALTOPLACE - _count).ToString() + " / " + TOTALTOPLACE.ToString();
     }
 
     public void SetActiveOrganism(Organism org)
@@ -604,22 +597,16 @@ public class CreationManager : MonoBehaviour
             if (_count == 0)
             {
                 //set up finished 
-
-                IsSetup = false;
-                Phase1Text.gameObject.SetActive(false);
-                Phase2Text.gameObject.SetActive(true);
-                Phase3Text.gameObject.SetActive(false);
+                SetPhase(2);
+                IsSetup = false;                
                 _timeLeft = PHASE2LENGTH;
-
-                TimeLabel.gameObject.SetActive(true);
+                
                 TimeValue.gameObject.SetActive(true);
 
-                CountLabel.gameObject.SetActive(false);
                 CountValue.gameObject.SetActive(false);
 
                 SimulationTip.gameObject.SetActive(false);
-                PlayTip.gameObject.SetActive(true);
-                PreGameTip.gameObject.SetActive(false);
+                PlayTip.gameObject.SetActive(true);                
             }
         }
 
@@ -709,5 +696,36 @@ public class CreationManager : MonoBehaviour
         
         IsEnteringName = false;
         IsReportingScore = true;
+        SetPhase(0);
+    }
+
+    private void SetPhase(int phase)
+    {
+        _currentPhase = phase;
+
+        Color baseWhite = new Color(0.5f, 0.5f, 0.5f, 1);
+
+        for (int i = 0; i < Phases.Length; i++)
+        {
+            if (i == phase)
+            {
+                Color highlightColor = new Color(4f,4f,4f, 1);
+                Phases[i].GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", highlightColor);
+
+                if (PhaseLabels[i] != null)
+                {
+                    PhaseLabels[i].SetActive(true);
+                }
+            }
+            else
+            {
+                Phases[i].GetComponent<MeshRenderer>().material.SetColor("_EmissionColor", baseWhite);
+
+                if (PhaseLabels[i] != null)
+                {
+                    PhaseLabels[i].SetActive(false);
+                }
+            }
+        }             
     }
 }
