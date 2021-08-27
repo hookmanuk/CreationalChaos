@@ -261,7 +261,11 @@ public class CreationManager : MonoBehaviour
                                 //loop all non red in a row, in one frame
                                 while (org.Type != OrganismType.Red)
                                 {
-                                    org.DestroyMe();                                    
+                                    org.DestroyMe();            
+                                    if (Organisms.Count >= _lastOrganismScored)
+                                    {
+                                        break;
+                                    }
                                     org = Organisms[_lastOrganismScored];                                    
                                 }                                                               
                             }

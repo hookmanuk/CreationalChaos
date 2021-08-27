@@ -1799,7 +1799,7 @@ GameObject:
   - component: {fileID: 897016274}
   - component: {fileID: 897016273}
   - component: {fileID: 897016276}
-  m_Layer: 0
+  m_Layer: 12
   m_Name: OrganismBlueSource
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1912,7 +1912,7 @@ GameObject:
   - component: {fileID: 952070010}
   - component: {fileID: 952070009}
   - component: {fileID: 952070013}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: OrganismGreenSource
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2782,7 +2782,7 @@ GameObject:
   - component: {fileID: 1447624991}
   - component: {fileID: 1447624990}
   - component: {fileID: 1447624993}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: OrganismRedSource
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3174,7 +3174,7 @@ Transform:
   m_GameObject: {fileID: 1496566463}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 4.35, y: 1.97, z: -12}
-  m_LocalScale: {x: 14, y: 10, z: 0.01}
+  m_LocalScale: {x: 16, y: 10, z: 0.01}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}

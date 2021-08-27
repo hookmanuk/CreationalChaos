@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class Organism : MonoBehaviour
@@ -50,11 +51,16 @@ public class Organism : MonoBehaviour
             //CreationManager.Instance.Organisms.Add(this);
         }
 
-        _direction = new Vector3(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f), 0);
+        SetRandomDirection();
         _rotation = new Vector3(UnityEngine.Random.Range(-180f, 180f), UnityEngine.Random.Range(-180f, 180f), UnityEngine.Random.Range(-180f, 180f));
         Started();
 
         _initDone = true;
+    }
+
+    private void SetRandomDirection()
+    {
+        _direction = new Vector3(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f), 0);
     }
 
     // Update is called once per frame
@@ -108,69 +114,134 @@ public class Organism : MonoBehaviour
 
                 if (!IsMenuItem)
                 {
-                    Speed = SLOWSPEED;                    
+                    Speed = SLOWSPEED;
 
-                    for (int i = 0; i < CreationManager.Instance.Organisms.Count; i++)
+                    //old code to get close orgs
+                    //for (int i = 0; i < CreationManager.Instance.Organisms.Count; i++)
+                    //{
+                    //    Organism org = CreationManager.Instance.Organisms[i];
+
+                    //    //check for target type close by, if they haven't mated last together, they can mate
+                    //    if (org != this && (org.Type == TargetType)
+                    //                    // && this.LastMated != org
+                    //                    //&& org.LastMated != this
+                    //                    && (DateTime.Now - this.LastMatedTime).TotalSeconds > 1
+                    //                    //&& (DateTime.Now - org.LastMatedTime).TotalSeconds > 1
+                    //                    )
+                    //    {
+                    //        distance = System.Math.Abs((transform.position - org.transform.position).sqrMagnitude);
+                    //        if (distance < 3)
+                    //        {
+                    //            if (distance < 0.01f)
+                    //            {
+                    //                //LastMated = org;
+                    //                LastMatedTime = DateTime.Now;
+                    //                //org.LastMated = this;
+                    //                //org.LastMatedTime = DateTime.Now;
+
+                    //                StartCoroutine(Mated());
+
+                    //                //spawn 2 children
+                    //                for (int j = 0; j < CreationManager.CLONECOUNT; j++)
+                    //                {
+                    //                    CreationManager.Instance.MakeOrganism(this.transform.position, this);                                        
+                    //                }
+
+                    //                //kill target
+                    //                org.DestroyMe();
+                    //                break;
+                    //            }
+                    //            else
+                    //            {
+                    //                closeOrganisms.Add(new Tuple<Organism, float>(org, distance));
+                    //                if (distance < 0.1f)
+                    //                {
+                    //                    closeOrg = org;
+                    //                    break;
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
+
+                    if ((DateTime.Now - this.LastMatedTime).TotalSeconds > 1)
                     {
-                        Organism org = CreationManager.Instance.Organisms[i];
+                        int layer = 0;
 
-                        //check for target type close by, if they haven't mated last together, they can mate
-                        if (org != this && (org.Type == TargetType)
-                                        // && this.LastMated != org
-                                        //&& org.LastMated != this
-                                        && (DateTime.Now - this.LastMatedTime).TotalSeconds > 1
-                                        //&& (DateTime.Now - org.LastMatedTime).TotalSeconds > 1
-                                        )
+                        switch (TargetType)
                         {
+                            case OrganismType.Red:
+                                layer = 1 << 10;
+                                break;
+                            case OrganismType.Green:
+                                layer = 1 << 11;
+                                break;
+                            case OrganismType.Blue:
+                                layer = 1 << 12;
+                                break;
+                            default:
+                                break;
+                        }
+                        Collider[] colliders = new Collider[0];
+
+                        float distanceCheck = 0.1f;
+                        while (colliders.Count() == 0 && distanceCheck <= 1.6f)
+                        {
+                            colliders = Physics.OverlapSphere(transform.position, distanceCheck, layer); //sq root of 3
+                            distanceCheck = distanceCheck * 2;
+                        }
+                            
+                        var orderedByProximity = colliders
+                            //.Where(c => c.GetComponent<Organism>()?.Type == TargetType)
+                            .OrderBy(c => (transform.position - c.transform.position).sqrMagnitude).ToArray();
+
+                        if (orderedByProximity.Count() > 0)
+                        {
+                            Organism org = orderedByProximity[0].GetComponent<Organism>();
+
                             distance = System.Math.Abs((transform.position - org.transform.position).sqrMagnitude);
-                            if (distance < 3)
+
+                            if (distance < 0.01f)
                             {
-                                if (distance < 0.01f)
+                                LastMatedTime = DateTime.Now;
+                                //org.LastMated = this;
+                                //org.LastMatedTime = DateTime.Now;
+
+                                StartCoroutine(Mated());
+
+                                //spawn 2 children
+                                for (int j = 0; j < CreationManager.CLONECOUNT; j++)
                                 {
-                                    //LastMated = org;
-                                    LastMatedTime = DateTime.Now;
-                                    //org.LastMated = this;
-                                    //org.LastMatedTime = DateTime.Now;
-
-                                    StartCoroutine(Mated());
-
-                                    //spawn 2 children
-                                    for (int j = 0; j < CreationManager.CLONECOUNT; j++)
-                                    {
-                                        CreationManager.Instance.MakeOrganism(this.transform.position, this);                                        
-                                    }
-
-                                    //kill target
-                                    org.DestroyMe();
-                                    break;
+                                    CreationManager.Instance.MakeOrganism(this.transform.position, this);
                                 }
-                                else
-                                {
-                                    closeOrganisms.Add(new Tuple<Organism, float>(org, distance));
-                                    if (distance < 0.1f)
-                                    {
-                                        closeOrg = org;
-                                        break;
-                                    }
-                                }
+
+                                //kill target
+                                org.DestroyMe();
+
                             }
-                        }
+                            else
+                            {
+                                _direction = org.transform.position - transform.position;
+                                Speed = FASTSPEED;
+
+                            }
+                        }                        
                     }
+                   
+                    //if (closeOrganisms.Count > 0)
+                    //{
+                    //    Speed = FASTSPEED;
 
-                    if (closeOrganisms.Count > 0)
-                    {
-                        Speed = FASTSPEED;
-
-                        if (closeOrg == null)
-                        {
-                            closeOrganisms.Sort((x, y) => x.Item2.CompareTo(y.Item2));
-                            closeOrg = closeOrganisms[0].Item1;
-                        }
+                    //    if (closeOrg == null)
+                    //    {
+                    //        closeOrganisms.Sort((x, y) => x.Item2.CompareTo(y.Item2));
+                    //        closeOrg = closeOrganisms[0].Item1;
+                    //    }
                         
-                        _direction = closeOrg.transform.position - transform.position;
-                    }
-                    else
-                    {
+                    //    _direction = closeOrg.transform.position - transform.position;
+                    //}
+                    //else
+                    //{
                         //don't need chased by phase
                         //for (int i = 0; i < CreationManager.Instance.Organisms.Count; i++)
                         //{
@@ -233,10 +304,10 @@ public class Organism : MonoBehaviour
                         //}
                         //else
                         //{
-                        Speed = SLOWSPEED;
+                        //Speed = SLOWSPEED;
                         //}
                         //}
-                    }
+                    //}
                 }
             }
 
