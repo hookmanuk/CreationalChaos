@@ -48,7 +48,7 @@ public class Organism : MonoBehaviour
         }
         else
         {
-            //CreationManager.Instance.Organisms.Add(this);
+            CreationManager.Instance.Organisms.Add(this);
         }
 
         SetRandomDirection();
