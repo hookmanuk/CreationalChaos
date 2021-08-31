@@ -22,6 +22,7 @@ public class Organism : MonoBehaviour
     public DateTime LastMatedTime { get; set; } = DateTime.MinValue;
     private float _secsSinceLastCalc = 99;
     public Material Material { get; set; }
+    public Collider[] CloseByOrganisms { get; set; }
 
     private bool _initDone = false;
 
@@ -97,10 +98,134 @@ public class Organism : MonoBehaviour
                 transform.position = new Vector3(transform.position.x, CreationManager.SCREENYMIN, transform.position.z);
             }
         }       
+    }    
+
+    public Vector3 CalcDirectionFromGrid()
+    {        
+        _secsSinceLastCalc += Time.deltaTime;
+
+        if (_secsSinceLastCalc > 0.15f)
+        {
+            _secsSinceLastCalc = 0;
+            if (CreationManager.Instance.IsPlaying && !CreationManager.Instance.IsSetup)
+            {
+                float distance = 0;
+                List<Tuple<Organism, float>> closeOrganisms = new List<Tuple<Organism, float>>();
+
+                if (!IsMenuItem)
+                {
+                    Speed = SLOWSPEED;
+
+                    if ((DateTime.Now - this.LastMatedTime).TotalSeconds > 1)
+                    {
+                        //int layer = 0;
+
+                        //switch (TargetType)
+                        //{
+                        //    case OrganismType.Red:
+                        //        layer = 1 << 10;
+                        //        break;
+                        //    case OrganismType.Green:
+                        //        layer = 1 << 11;
+                        //        break;
+                        //    case OrganismType.Blue:
+                        //        layer = 1 << 12;
+                        //        break;
+                        //    default:
+                        //        break;
+                        //}
+                        //Collider[] colliders = new Collider[0];
+
+                        //float distanceCheck = 0.1f;
+                        //while (colliders.Count() == 0 && distanceCheck <= 1.6f)
+                        //{
+                        //    colliders = Physics.OverlapSphere(transform.position, distanceCheck, layer); //sq root of 3
+                        //    distanceCheck = distanceCheck * 2;
+                        //}
+
+                        //var orderedByProximity = colliders
+                        //    //.Where(c => c.GetComponent<Organism>()?.Type == TargetType)
+                        //    .OrderBy(c => (transform.position - c.transform.position).sqrMagnitude).ToArray();
+
+                        List<Organism> orderedByProximity = new List<Organism>();
+                        int? x = GetIndexX();
+                        int? y = GetIndexY();
+
+                        if (x.HasValue && y.HasValue)
+                        {
+
+                            switch (Type)
+                            {
+                                case OrganismType.Red:
+                                    orderedByProximity = CreationManager.Instance.BlueGrid[x.Value, y.Value].CloseOrganisms;                                    
+                                    break;
+                                case OrganismType.Green:
+                                    orderedByProximity = CreationManager.Instance.RedGrid[x.Value, y.Value].CloseOrganisms;
+                                    break;
+                                case OrganismType.Blue:
+                                    orderedByProximity = CreationManager.Instance.GreenGrid[x.Value, y.Value].CloseOrganisms;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            orderedByProximity = orderedByProximity
+                                                       .OrderBy(c => (transform.position - c.transform.position).sqrMagnitude).ToList();
+
+                            if (orderedByProximity.Count() > 0)
+                            {
+                                Organism org = orderedByProximity[0].GetComponent<Organism>();
+
+                                distance = System.Math.Abs((transform.position - org.transform.position).sqrMagnitude);
+
+                                if (distance < 0.01f && !CreationManager.Instance.IsPerformanceTest)
+                                {
+                                    LastMatedTime = DateTime.Now;
+                                    //org.LastMated = this;
+                                    //org.LastMatedTime = DateTime.Now;
+
+                                    StartCoroutine(Mated());
+
+                                    //spawn 2 children
+                                    for (int j = 0; j < CreationManager.CLONECOUNT; j++)
+                                    {
+                                        CreationManager.Instance.MakeOrganism(this.transform.position, this);
+                                    }
+
+                                    //kill target
+                                    org.DestroyMe();
+
+                                }
+                                else
+                                {
+                                    _direction = org.transform.position - transform.position;
+                                    Speed = FASTSPEED;
+
+                                }
+                            }
+                        }
+                    }                
+                }
+            }
+
+            //hack to reset glow
+            if (!_isGlowing)
+            {
+                Vector4 vector = new Vector4(1f, 1f, 1f, 1f);
+                if (Material.GetVector("_Glow") != vector)
+                {
+                    Material.SetVector("_Glow", vector);
+                }
+            }
+        }
+
+        return _direction;
     }
 
     public Vector3 CalcDirection()
     {
+        //Speed = SLOWSPEED;
+        //return _direction;
+
         Organism closeOrg = null;
         _secsSinceLastCalc += Time.deltaTime;
         
@@ -166,36 +291,66 @@ public class Organism : MonoBehaviour
 
                     if ((DateTime.Now - this.LastMatedTime).TotalSeconds > 1)
                     {
-                        int layer = 0;
-
-                        switch (TargetType)
+                        //check to see if your closest org is already set by another organism, if so just use that
+                        if ((CloseByOrganisms?.Count() ?? 0) > 0)
                         {
-                            case OrganismType.Red:
-                                layer = 1 << 10;
-                                break;
-                            case OrganismType.Green:
-                                layer = 1 << 11;
-                                break;
-                            case OrganismType.Blue:
-                                layer = 1 << 12;
-                                break;
-                            default:
-                                break;
+                            CloseByOrganisms = CloseByOrganisms?.Where(c => c.gameObject.activeSelf).ToArray();
                         }
-                        Collider[] colliders = new Collider[0];
+                        if ((CloseByOrganisms?.Count() ?? 0) == 0)
+                        {                            
+                            int targetLayer = 0;
+                            int sourceLayer = 0;
 
-                        float distanceCheck = 0.1f;
-                        while (colliders.Count() == 0 && distanceCheck <= 1.6f)
-                        {
-                            colliders = Physics.OverlapSphere(transform.position, distanceCheck, layer); //sq root of 3
-                            distanceCheck = distanceCheck * 2;
-                        }
-                            
-                        var orderedByProximity = colliders
-                            //.Where(c => c.GetComponent<Organism>()?.Type == TargetType)
-                            .OrderBy(c => (transform.position - c.transform.position).sqrMagnitude).ToArray();
+                            switch (TargetType)
+                            {
+                                case OrganismType.Red:
+                                    targetLayer = 1 << 10;
+                                    sourceLayer = 1 << 11;
+                                    break;
+                                case OrganismType.Green:
+                                    targetLayer = 1 << 11;
+                                    sourceLayer = 1 << 12;
+                                    break;
+                                case OrganismType.Blue:
+                                    targetLayer = 1 << 12;
+                                    sourceLayer = 1 << 10;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            Collider[] colliders = new Collider[0];                            
 
-                        if (orderedByProximity.Count() > 0)
+                            float distanceCheck = 0.1f;
+                            //while (colliders.Count() == 0 && distanceCheck <= 1.6f)
+                            //{
+                            //    colliders = Physics.OverlapSphere(transform.position, distanceCheck, targetLayer); //sq root of 3
+
+                            //    distanceCheck = distanceCheck * 2;
+                            //}
+                            colliders = Physics.OverlapSphere(transform.position, 0.1f, targetLayer); //sq root of 3
+                            if (colliders.Count() == 0)
+                            {
+                                colliders = Physics.OverlapSphere(transform.position, 1.7f, targetLayer); //sq root of 3
+                            }
+
+                            if (colliders.Count() > 0)
+                            {
+                                CloseByOrganisms = colliders;
+
+                                ////set closet org to any other orgs that are also close by here
+                                var closeSameTypes = Physics.OverlapSphere(transform.position, 0.1f, sourceLayer);
+                                for (int i = 0; i < closeSameTypes.Count(); i++)
+                                {
+                                    closeSameTypes[i].GetComponent<Organism>().CloseByOrganisms = CloseByOrganisms;
+                                }
+                            }
+                        }                        
+
+                        var orderedByProximity = CloseByOrganisms?
+                            .Where(c => c.gameObject.activeSelf)
+                            .OrderBy(c => (transform.position - c.transform.position).sqrMagnitude).ToArray();                                
+
+                        if (orderedByProximity?.Count() > 0)
                         {
                             Organism org = orderedByProximity[0].GetComponent<Organism>();
 
@@ -209,8 +364,15 @@ public class Organism : MonoBehaviour
 
                                 StartCoroutine(Mated());
 
+                                int spawnNumber = CreationManager.CLONECOUNT;
+
+                                //reduce spawns if performance would break!
+                                if (CreationManager.Instance.Organisms.Where(o => o.gameObject.activeSelf).Count() > 3000)
+                                {
+                                    spawnNumber = 1;
+                                }
                                 //spawn 2 children
-                                for (int j = 0; j < CreationManager.CLONECOUNT; j++)
+                                for (int j = 0; j < spawnNumber; j++)
                                 {
                                     CreationManager.Instance.MakeOrganism(this.transform.position, this);
                                 }
@@ -353,9 +515,65 @@ public class Organism : MonoBehaviour
         this.gameObject.SetActive(false);
     }    
 
-    public void DestroyMe()
+    public void DestroyMe(bool removeFromList = false)
     {
-        CreationManager.Instance.Organisms.Remove(this);
+        if (removeFromList)
+        {
+            CreationManager.Instance.Organisms.Remove(this);
+        }
+        else
+        {
+            if (Type == OrganismType.Red)
+            {
+                CreationManager.Instance.CountGreen++;
+
+                if (CreationManager.Instance.CountGreen == CreationManager.ELECTRICTARGET)
+                {
+                    CreationManager.Instance.CountGreen = 0;
+
+                    if ((CreationManager.Instance.GreenTimeInterval - DateTime.Now).Seconds < CreationManager.ELECTRICINTERVAL)
+                    {
+                        GameObject green = Instantiate(CreationManager.Instance.GreenElectric);
+                        green.transform.position = this.transform.position;
+                    }
+                    CreationManager.Instance.GreenTimeInterval = DateTime.Now;
+                }
+            }
+            if (Type == OrganismType.Green)
+            {
+                CreationManager.Instance.CountBlue++;
+
+                if (CreationManager.Instance.CountBlue == CreationManager.ELECTRICTARGET)
+                {
+                    CreationManager.Instance.CountBlue = 0;
+
+                    if ((CreationManager.Instance.BlueTimeInterval - DateTime.Now).Seconds < CreationManager.ELECTRICINTERVAL)
+                    {
+                        GameObject blue = Instantiate(CreationManager.Instance.BlueElectric);
+                        blue.transform.position = this.transform.position;
+                    }
+                    CreationManager.Instance.BlueTimeInterval = DateTime.Now;
+
+                }
+            }
+            if (Type == OrganismType.Blue)
+            {
+                CreationManager.Instance.CountRed++;
+
+                if (CreationManager.Instance.CountRed == CreationManager.ELECTRICTARGET)
+                {
+                    CreationManager.Instance.CountRed = 0;
+
+                    if ((CreationManager.Instance.RedTimeInterval - DateTime.Now).Seconds < CreationManager.ELECTRICINTERVAL)
+                    {
+                        GameObject red = Instantiate(CreationManager.Instance.RedElectric);
+                        red.transform.position = this.transform.position;
+                    }
+                    CreationManager.Instance.RedTimeInterval = DateTime.Now;
+
+                }
+            }
+        }
 
         //GameObject.Destroy(this.gameObject);        
         this.gameObject.SetActive(false);
@@ -420,6 +638,30 @@ public class Organism : MonoBehaviour
     {
         this.transform.localScale = this.transform.localScale / 2f;
     }
+
+    public int? GetIndexX()
+    {
+        for (int i = 0; i < 14; i++)
+        {
+            if (transform.position.x < CreationManager.SCREENXMIN + i + 1)
+            {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    public int? GetIndexY()
+    {
+        for (int j = 0; j < 7; j++)
+        {
+            if (transform.position.x < CreationManager.SCREENYMIN + j + 1)
+            {
+                return j;
+            }
+        }
+        return null;
+    }
 }
 
 public enum OrganismType
@@ -427,4 +669,10 @@ public enum OrganismType
     Red,
     Green,
     Blue
+}
+
+public class OrganismGridCell
+{
+    public List<Organism> ContainedOrganisms { get; set; } = new List<Organism>();
+    public List<Organism> CloseOrganisms { get; set; } = new List<Organism>();
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class CreationManager : MonoBehaviour
@@ -21,6 +22,7 @@ public class CreationManager : MonoBehaviour
     public GameObject[] Phases;
     public GameObject[] PhaseLabels;
     public GameObject SimulationCycleOfLife;
+    public bool IsPerformanceTest;
 
     private static CreationManager _creationManager;
     public static CreationManager Instance { get { return _creationManager; } }
@@ -32,12 +34,17 @@ public class CreationManager : MonoBehaviour
     public const int CLONECOUNT = 2;
     const int TOTALTOPLACE = 60;
     const int PHASE2LENGTH = 40;
+    public const int ELECTRICTARGET = 20;
+    public const int ELECTRICINTERVAL = 1;
     const float SPEEDUPTIME = 4f;
     public const float SCREENXMAX = 7f;
     public const float SCREENXMIN = -7f;
     public const float SCREENYMIN = -2f;
     public const float SCREENYMAX = 5f;
 
+    public OrganismGridCell[,] RedGrid = new OrganismGridCell[14, 7];
+    public OrganismGridCell[,] BlueGrid = new OrganismGridCell[14, 7];
+    public OrganismGridCell[,] GreenGrid = new OrganismGridCell[14, 7];
 
     public Organism ActiveOrganism { get; set; }    
 
@@ -46,6 +53,9 @@ public class CreationManager : MonoBehaviour
     public Organism RedOrganismSource;
     public Organism GreenOrganismSource;
     public Organism BlueOrganismSource;
+    public GameObject GreenElectric;
+    public GameObject RedElectric;
+    public GameObject BlueElectric;
 
     public float WaitTime { get; set; } = 0;
     private Vector3 _lastClicked = Vector3.zero;
@@ -60,6 +70,14 @@ public class CreationManager : MonoBehaviour
     private float _last1ColourCheckTime = 0;
     private bool _all1Type = false;
     private int _currentPhase = 0;
+    public int CountGreen { get; set; } = 0;
+    public int CountRed { get; set; } = 0;
+    public int CountBlue { get; set; } = 0;
+
+    public DateTime GreenTimeInterval { get; set; }
+    public DateTime RedTimeInterval { get; set; }
+    public DateTime BlueTimeInterval { get; set; }
+
     public bool IsPlaying { get; set; } = false;
     public bool IsSetup { get; set; } = false;
     public bool IsScoring { get; set; } = false;
@@ -116,6 +134,26 @@ public class CreationManager : MonoBehaviour
         }
     }
 
+    private void FakeInitOrganisms()
+    {
+        _count = 150;
+
+        for (int i = 0; i < 50; i++)
+        {
+            MakeOrganism(new Vector3(UnityEngine.Random.Range(SCREENXMIN, SCREENXMAX), UnityEngine.Random.Range(SCREENYMIN, SCREENYMAX), 7.5f), RedOrganismSource);
+        }
+
+        for (int i = 0; i < 50; i++)
+        {
+            MakeOrganism(new Vector3(UnityEngine.Random.Range(SCREENXMIN, SCREENXMAX), UnityEngine.Random.Range(SCREENYMIN, SCREENYMAX), 7.5f), GreenOrganismSource);
+        }
+
+        for (int i = 0; i < 50; i++)
+        {
+            MakeOrganism(new Vector3(UnityEngine.Random.Range(SCREENXMIN, SCREENXMAX), UnityEngine.Random.Range(SCREENYMIN, SCREENYMAX), 7.5f), BlueOrganismSource);
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {                
@@ -143,16 +181,19 @@ public class CreationManager : MonoBehaviour
 
                     if (WaitTime < 0)
                     {
-                        WaitTime = 0;
-                        //don't really need this, just use the current click
-                        //if (_lastClicked != Vector3.zero)
-                        //{
-                        //    MakeOrganism(GetPositionFromClick(_lastClicked), ActiveOrganism.Source);
-                        //    _lastClicked = Vector3.zero;
-                        //}
+                        WaitTime = 0;                       
                     }
                 }
 
+                if (IsPerformanceTest)
+                {
+                    FakeInitOrganisms();
+                    if (!CountValue.gameObject.activeSelf)
+                    {
+                        CountValue.gameObject.SetActive(true);
+                        CountValue.gameObject.transform.position += -Vector3.up;
+                    }                    
+                }                
 
                 foreach (var touch in Input.touches)
                 {
@@ -185,6 +226,8 @@ public class CreationManager : MonoBehaviour
                         Music.time = MusicMainStart;
                     }
                     CheckDoubleTime();
+                   
+                    //MovementCalculations();
                 }
 
                 string strNewTimeLeft = System.Math.Round(_timeLeft).ToString() + " secs";
@@ -206,11 +249,11 @@ public class CreationManager : MonoBehaviour
                 {
                     _timeSinceLastScore = 0;
 
-                    if (_lastOrganismScored < Organisms.Count)
+                   
+                    while (_lastOrganismScored < Organisms.Count)
                     {
                         Organism org = Organisms[_lastOrganismScored];
-
-                        if (!org.IsMenuItem && org.isActiveAndEnabled)
+                        if (!org.IsMenuItem && org.gameObject.activeSelf)
                         {
                             if (org.Type == OrganismType.Red)
                             {
@@ -219,35 +262,27 @@ public class CreationManager : MonoBehaviour
                                 ScoreValue.text = _score.ToString();
 
                                 org.PulseDestroy();
-                                _lastOrganismScored++; //destroy on a thread, so not removed from collection yet                                
-                            }
-                            else
-                            {
-                                //loop all non red in a row, in one frame
-                                while (org.Type != OrganismType.Red)
-                                {
-                                    org.DestroyMe();            
-                                    if (Organisms.Count >= _lastOrganismScored)
-                                    {
-                                        break;
-                                    }
-                                    org = Organisms[_lastOrganismScored];                                    
-                                }                                                               
-                            }
+                                _lastOrganismScored++;
+                                break;
+                            }                                                        
+                        }                        
+                        _lastOrganismScored++;
+                    }
 
-                            //as score goes by, reduce the time for each score to show
-                            _timeSinceLastScore = Math.Min(_score / 400f, 1f) * SCOREINTERVAL * 0.9f;
+                    //as score goes by, reduce the time for each score to show
+                    _timeSinceLastScore = Math.Min(_score / 400f, 1f) * SCOREINTERVAL * 1f;
+
+                    if (_lastOrganismScored >= Organisms.Count)
+                    {
+                        if (_score == 0)
+                        {
+                            StartCoroutine(ShowTipText());                            
                         }
                         else
                         {
-                            _lastOrganismScored++;
-                        }
-                    }
-                    else
-                    {
-                        StartCoroutine(ShowKeyboard());
-                        _lastOrganismScored = 0;                        
-                    }
+                            StartCoroutine(ShowKeyboard());                            
+                        }                        
+                    }                    
                 }
             }
             else
@@ -319,6 +354,141 @@ public class CreationManager : MonoBehaviour
         }
     }
 
+    private void MovementCalculations()
+    {
+        AssignOrganismsToGrid();
+
+        //for (int i = 0; i < Organisms.Count; i++)
+        //{
+        //    Organism org = Organisms[i];
+        //    //move org according to close orgs in grid
+        //    org.MoveInDirection(org.CalcDirectionFromGrid());
+        //}
+    }
+
+    private List<Organism> CalcCloseOrganisms(OrganismGridCell[,] sourceGrid, int? x, int? y)
+    {
+        List<Organism> orgs = null;        
+
+        if (x.HasValue && y.HasValue)
+        {
+            orgs = new List<Organism>();
+
+            for (int i = x.Value - 1; i <= x.Value + 1; i++)
+            {
+                if (i < 0)
+                {
+                    i = 13;
+                }
+                if (i > 13)
+                {
+                    i = 0;
+                }
+                for (int j = y.Value; j <= y.Value + 1; j++)
+                {
+                    if (j < 0)
+                    {
+                        j = 6;
+                    }
+                    if (j > 6)
+                    {
+                        j = 0;
+                    }
+                    
+                    orgs.AddRange(sourceGrid[i, j].ContainedOrganisms);
+                }
+            }
+        }
+
+        return orgs;
+    }
+
+    private List<Organism> CalculateCloseOrganismsPerGridCellForType(OrganismType type, int? x, int? y)
+    {
+        List<Organism> orderedByProximity = new List<Organism>();
+
+        switch (type)
+        {
+            case OrganismType.Red:
+                orderedByProximity = CalcCloseOrganisms(CreationManager.Instance.BlueGrid, x, y);
+                break;
+            case OrganismType.Green:
+                orderedByProximity = CalcCloseOrganisms(CreationManager.Instance.RedGrid, x, y);
+                break;
+            case OrganismType.Blue:
+                orderedByProximity = CalcCloseOrganisms(CreationManager.Instance.GreenGrid, x, y);
+                break;
+            default:
+                break;
+        }        
+
+        return orderedByProximity;
+    }
+
+    private void CalculateCloseOrganismsPerGridCell(OrganismGridCell[,] grid, OrganismType type)
+    {
+        for (int i = 0; i < 14; i++)
+        {
+            for (int j = 0; j < 7; j++)
+            {
+                List<Organism> orgs;                
+                orgs = CalculateCloseOrganismsPerGridCellForType(type, i, j);
+                
+                grid[i,j].CloseOrganisms = orgs;                
+            }
+        }
+    }
+
+    private void AssignOrganismsToGrid()
+    {
+        for (int i = 0; i < Organisms.Count; i++)
+        {
+            Organism org = Organisms[i];
+
+            AssignOrganismToGrid(org);
+        }
+
+        CalculateCloseOrganismsPerGridCell(RedGrid, OrganismType.Red);
+        CalculateCloseOrganismsPerGridCell(BlueGrid, OrganismType.Blue);
+        CalculateCloseOrganismsPerGridCell(GreenGrid, OrganismType.Green);
+    }    
+    
+    private void AssignOrganismToGrid(Organism org)
+    {
+        int? x = org.GetIndexX();
+
+        if (x.HasValue)
+        {
+            int? y = org.GetIndexY();
+
+            if (y.HasValue)
+            {
+                OrganismGridCell orgs = null;
+
+                switch (org.Type)
+                {
+                    case OrganismType.Red:
+                        orgs = (OrganismGridCell)RedGrid.GetValue(x.Value, y.Value);
+                        orgs.ContainedOrganisms.Add(org);
+                        RedGrid.SetValue(orgs, x.Value, y.Value);
+                        break;
+                    case OrganismType.Green:
+                        orgs = (OrganismGridCell)GreenGrid.GetValue(x.Value, y.Value);
+                        orgs.ContainedOrganisms.Add(org);
+                        GreenGrid.SetValue(orgs, x.Value, y.Value);
+                        break;
+                    case OrganismType.Blue:
+                        orgs = (OrganismGridCell)BlueGrid.GetValue(x.Value, y.Value);
+                        orgs.ContainedOrganisms.Add(org);
+                        BlueGrid.SetValue(orgs, x.Value, y.Value);
+                        break;
+                    default:
+                        break;
+                }                
+            }
+        }        
+    }    
+
     IEnumerator ShowKeyboard()
     {
         SetPhase(4);
@@ -364,23 +534,68 @@ public class CreationManager : MonoBehaviour
         SetPhase(0);
     }
 
+    IEnumerator ShowTipText()
+    {
+        IsSetup = false;
+        IsScoring = false;
+        IsEnteringName = false;
+        IsReportingScore = false;
+        IsRenderingScores = true;
+
+        yield return new WaitForSeconds(2);
+
+        IsRenderingScores = false;
+
+        Time.timeScale = 1;
+
+        PlayTip.gameObject.SetActive(false);
+        SimulationTip.gameObject.SetActive(false);
+        
+        ScoreValue.gameObject.SetActive(false);
+        HighScores.gameObject.SetActive(true);
+        TitleScreen.SetActive(true);
+        HighScores.text = "Oh no! You scored zero points..." + Environment.NewLine + Environment.NewLine;
+        HighScores.text += "Only the reds on screen at the end of" + Environment.NewLine;
+        HighScores.text += "evolution will score points" + Environment.NewLine + Environment.NewLine;
+        HighScores.text += "During the genesis phase, try adding" + Environment.NewLine;
+        HighScores.text += "some reds and and some blues!" + Environment.NewLine + Environment.NewLine;
+        HighScores.text += "The cycle of life shows the ecosystem" + Environment.NewLine;
+        HighScores.text += "e.g. Reds eat Blues, and will create" + Environment.NewLine;
+        HighScores.text += "2 new Reds as a result!" + Environment.NewLine + Environment.NewLine;
+        IsEndScreen = true;
+
+        SetPhase(0);
+    }
+
     private void CheckDoubleTime()
     {
         _last1ColourCheckTime += Time.deltaTime;
         if (!_all1Type && _last1ColourCheckTime > 1f && Organisms.Count > 0)
         {
+            if (IsPerformanceTest)
+            {
+                CountValue.text = Organisms.Where(o => o.gameObject.activeSelf).Count().ToString() + " orgs";
+            }
+
             _last1ColourCheckTime = 0;
 
-            OrganismType orgType;
-            _all1Type = true;
-            orgType = Organisms[0].Type;
+            OrganismType? orgType = null;
+            _all1Type = true;            
             for (int i = 0; i < Organisms.Count; i++)
             {
-                if (orgType != Organisms[i].Type)
+                if (Organisms[i].gameObject.activeSelf)
                 {
-                    _all1Type = false;
-                    break;
-                }
+                    if (orgType == null)
+                    {
+                        orgType = Organisms[i].Type;
+                    }
+
+                    if (orgType != Organisms[i].Type)
+                    {
+                        _all1Type = false;
+                        break;
+                    }
+                }                
             }            
         }
         
@@ -412,6 +627,7 @@ public class CreationManager : MonoBehaviour
 
     private void StartGame()
     {
+        _lastOrganismScored = 0;
         SetPhase(1);
         IsPlaying = true;
         IsSetup = true;
@@ -452,6 +668,37 @@ public class CreationManager : MonoBehaviour
 
         WaitTime = 0.5f;
         _all1Type = false;
+
+        for (int i = 0; i < 14; i++)
+        {
+            for (int j = 0; j < 7; j++)
+            {
+                if (RedGrid[i,j] != null)
+                {
+                    RedGrid[i, j].ContainedOrganisms.Clear();
+                    RedGrid[i, j].CloseOrganisms.Clear();
+                }
+                RedGrid[i, j] = new OrganismGridCell();
+
+                if (BlueGrid[i, j] != null)
+                {
+                    BlueGrid[i, j].ContainedOrganisms.Clear();
+                    BlueGrid[i, j].CloseOrganisms.Clear();
+                }
+                BlueGrid[i, j] = new OrganismGridCell();
+
+                if (GreenGrid[i, j] != null)
+                {
+                    GreenGrid[i, j].ContainedOrganisms.Clear();
+                    GreenGrid[i, j].CloseOrganisms.Clear();
+                }
+                GreenGrid[i, j] = new OrganismGridCell();
+            }
+        }
+
+        RedTimeInterval = DateTime.Now;
+        GreenTimeInterval = DateTime.Now;
+        BlueTimeInterval = DateTime.Now;
     }
 
     private void ScoringPhase()
@@ -473,9 +720,17 @@ public class CreationManager : MonoBehaviour
             Organism org = Organisms[i];
             if (!org.IsMenuItem)
             {
-                org.Material.SetFloat("_Dim", 1f);
+                if (org.Type == OrganismType.Red)
+                {
+                    org.Material.SetFloat("_Dim", 0.9f);
+                }
+                else
+                {
+                    org.DestroyMe(true);
+                    i--;
+                }
             }
-        }
+        }        
     }
 
     private void ResetCount()
